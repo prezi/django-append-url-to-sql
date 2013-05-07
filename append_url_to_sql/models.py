@@ -68,9 +68,7 @@ def get_request(f_locals):
 
 def create_wrapper_factory(old_cursor):
 
-    base_class = util.CursorDebugWrapper
-
-    class LoggingCursorWrapper(base_class):
+    class LoggingCursorWrapper(util.CursorDebugWrapper):
 
         def execute(self, sql, *args):
             f = sys._getframe()
@@ -81,7 +79,8 @@ def create_wrapper_factory(old_cursor):
                     sql = '/* %s */ %s' % (log_message.replace("*", "_"), sql)
                     break
                 f = f.f_back
-            return super(LoggingCursorWrapper, self).execute(sql, *args)
+            # Only run CursorDebugWrapper.execute if we are in debug cursor mode.
+            return super(LoggingCursorWrapper, self).execute(sql, *args) if self.cursor.__class__ == self.__class__ else self.cursor.execute(sql, *args)
 
     def cursor(self, *args, **kwargs):
         return LoggingCursorWrapper(old_cursor(self, *args, **kwargs), self)
