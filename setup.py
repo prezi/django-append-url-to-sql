@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 setup(
     name='django-append-url-to-sql',
     description="Appends the request URL to SQL statements in Django.",
-    version="0.1",
+    version="0.2",
     url='http://code.playfire.com/django-append-url-to-sql',
 
     author='Playfire.com',

@@ -56,31 +56,38 @@ from django.conf import settings
 from django.http import HttpRequest
 from django.db.backends import util, BaseDatabaseWrapper
 
-class CursorWrapper(util.CursorDebugWrapper):
-    def get_sql_query_tag_message(self, f_locals):
-        message = f_locals.get('sql_query_tag')
-        return repr(message) if message is not None else message
+def get_sql_query_tag(f_locals):
+    message = f_locals.get('sql_query_tag', None)
+    return repr(message)[1:-1] if message is not None else message
 
-    def get_request(self, f_locals):
-        request = f.f_locals.get('request')
-        if isinstance(request, HttpRequest):
-            return repr(request.path)[2:-1].replace('%', '%%')
-        return None
+def get_request(f_locals):
+    request = f_locals.get('request', None)
+    if isinstance(request, HttpRequest):
+        return repr(request.path)[2:-1].replace('%', '%%')
+    return None
 
-    def execute(self, sql, *args):
-        f = sys._getframe()
-        while f:
-            sql_comment = None
-            f_locals = f.f_locals
-            log_message = self.get_sql_query_tag(f_locals) or self.get_request(f_locals)
-            if log_message is not None:
-                sql += ' -- %s' % log_message
-                break
-            f = f.f_back
-        return self.cursor.execute(sql, *args)
+def create_wrapper_factory(old_cursor):
+
+    base_class = util.CursorDebugWrapper
+
+    class LoggingCursorWrapper(base_class):
+
+        def execute(self, sql, *args):
+            f = sys._getframe()
+            while f:
+                f_locals = f.f_locals
+                log_message = get_sql_query_tag(f_locals) or get_request(f_locals)
+                if log_message is not None:
+                    sql = '/* %s */ %s' % (log_message.replace("*", "_"), sql)
+                    break
+                f = f.f_back
+            return super(LoggingCursorWrapper, self).execute(sql, *args)
+
+    def cursor(self, *args, **kwargs):
+        return LoggingCursorWrapper(old_cursor(self, *args, **kwargs), self)
+
+    return cursor
 
 if getattr(settings, 'APPEND_URL_TO_SQL_ENABLED', True):
     old_cursor = BaseDatabaseWrapper.cursor
-    def cursor(self, *args, **kwargs):
-        return CursorWrapper(old_cursor(self, *args, **kwargs), self)
-    BaseDatabaseWrapper.cursor = cursor
+    BaseDatabaseWrapper.cursor = create_wrapper_factory(old_cursor)
