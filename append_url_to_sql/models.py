@@ -76,6 +76,7 @@ def create_wrapper_factory(old_cursor):
                 f_locals = f.f_locals
                 log_message = get_sql_query_tag(f_locals) or get_request(f_locals)
                 if log_message is not None:
+                    # replace * so cleverly crafted urls cannot cause the comment to end prematurely.
                     sql = '/* %s */ %s' % (log_message.replace("*", "_"), sql)
                     break
                 f = f.f_back
