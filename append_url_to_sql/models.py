@@ -73,6 +73,13 @@ def normalize_message(msg):
     msg = msg.replace('%', '%%')
     return msg
 
+sql_format_strings = {
+    'django.db.backends.mysql': '/* %(msg)s */ %(sql)s ',
+    'django.db.backends.sqlite3': '%(sql)s /* %(msg)s */'
+}
+
+DEFAULT_FORMAT_STRING = '%(sql)s'
+
 def create_wrapper_factory(old_cursor):
 
     class LoggingCursorWrapper(util.CursorDebugWrapper):
@@ -83,7 +90,8 @@ def create_wrapper_factory(old_cursor):
                 f_locals = f.f_locals
                 log_message = get_sql_query_tag(f_locals) or get_request(f_locals)
                 if log_message is not None:
-                    sql = '%(sql)s /* %(msg)s */' % {'sql': sql, 'msg': normalize_message(log_message)}
+                    format_string = sql_format_strings.get(self.db.settings_dict.get('ENGINE', None), None) or DEFAULT_FORMAT_STRING
+                    sql = format_string % {'sql': sql, 'msg': normalize_message(log_message)}
                     break
                 f = f.f_back
             # Only run CursorDebugWrapper.execute if we are in debug cursor mode.
