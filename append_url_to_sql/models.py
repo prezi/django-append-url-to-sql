@@ -80,7 +80,7 @@ def create_wrapper_factory(old_cursor):
                     break
                 f = f.f_back
             # Only run CursorDebugWrapper.execute if we are in debug cursor mode.
-            return super(LoggingCursorWrapper, self).execute(sql, *args) if self.cursor.__class__ == self.__class__ else self.cursor.execute(sql, *args)
+            return super(LoggingCursorWrapper, self).execute(sql, *args) if self.cursor.__class__ == util.CursorDebugWrapper else self.cursor.execute(sql, *args)
 
     def cursor(self, *args, **kwargs):
         return LoggingCursorWrapper(old_cursor(self, *args, **kwargs), self)
