@@ -66,6 +66,13 @@ def get_request(f_locals):
         return repr(request.path)[2:-1].replace('%', '%%')
     return None
 
+def normalize_message(msg):
+    # replace * so cleverly crafted urls cannot cause the comment to end prematurely.
+    msg = msg.replace("*", "_")
+    # replace % so nothing in the message is treated as a template value.
+    msg = msg.replace('%', '%%')
+    return msg
+
 def create_wrapper_factory(old_cursor):
 
     class LoggingCursorWrapper(util.CursorDebugWrapper):
@@ -76,11 +83,12 @@ def create_wrapper_factory(old_cursor):
                 f_locals = f.f_locals
                 log_message = get_sql_query_tag(f_locals) or get_request(f_locals)
                 if log_message is not None:
-                    # replace * so cleverly crafted urls cannot cause the comment to end prematurely.
-                    sql = '/* %s */ %s' % (log_message.replace("*", "_"), sql)
+                    sql = '%(sql)s /* %(msg)s */' % {'sql': sql, 'msg': normalize_message(log_message)}
                     break
                 f = f.f_back
             # Only run CursorDebugWrapper.execute if we are in debug cursor mode.
+            with open("/Users/neumark/queries_unmodified", "a") as myfile:
+                    myfile.write(sql + "\n")
             return super(LoggingCursorWrapper, self).execute(sql, *args) if self.cursor.__class__ == util.CursorDebugWrapper else self.cursor.execute(sql, *args)
 
     def cursor(self, *args, **kwargs):
